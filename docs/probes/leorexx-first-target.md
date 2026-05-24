@@ -27,7 +27,7 @@ The first probe must collect:
 clean build time
 no-op build time
 one-file rebuild time
-````
+```
 
 Suggested command pattern:
 

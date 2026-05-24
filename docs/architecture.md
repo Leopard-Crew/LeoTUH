@@ -37,7 +37,7 @@ Generated files must be disposable and must live below:
 
 ```text
 build/leotuh/
-````
+```
 
 LeoTUH must never generate files inside `vendor/`.
 
