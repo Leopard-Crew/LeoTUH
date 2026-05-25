@@ -22,6 +22,11 @@ SOURCE_EXTENSIONS = {
 }
 
 
+RISKY_LOCAL_DEFINE_NAMES = {
+    "this": "cpp_keyword_macro"
+}
+
+
 def read_text(path):
     f = open(path, "rb")
     try:
@@ -291,6 +296,16 @@ def find_local_defines(commentless_text):
     return defines
 
 
+def find_risky_local_defines(defines):
+    risky = []
+
+    for name in defines:
+        if name in RISKY_LOCAL_DEFINE_NAMES:
+            risky.append("%s:%s" % (name, RISKY_LOCAL_DEFINE_NAMES[name]))
+
+    return risky
+
+
 def detect_entry_point(masked_text):
     patterns = [
         r'\bmain\s*\(',
@@ -432,6 +447,7 @@ def main(argv):
     approve, prohibit = find_markers(text)
     includes = find_direct_includes(commentless)
     defines = find_local_defines(commentless)
+    risky_defines = find_risky_local_defines(defines)
     local_header_guards = find_local_header_guards(path, includes, options.include_dirs)
     has_entry_point = detect_entry_point(masked)
 
@@ -468,6 +484,7 @@ def main(argv):
     print_list("direct_includes", includes)
     print_header_guards(local_header_guards)
     print_list("local_defines", defines)
+    print_list("risky_local_defines", risky_defines)
     print("decision: %s" % decision)
     print("reason: %s" % reason)
 
