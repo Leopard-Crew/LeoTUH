@@ -1,0 +1,21 @@
+# LeoTUH scope example for LeooRexx.
+#
+# This file is an example only.
+# Paths are relative to the LeooRexx project root.
+
+root=src/oorexx-3.2.0-leopard
+
+include-dir=src/oorexx-3.2.0-leopard/kernel
+include-dir=src/oorexx-3.2.0-leopard/kernel/classes
+include-dir=src/oorexx-3.2.0-leopard/kernel/runtime
+include-dir=src/oorexx-3.2.0-leopard/kernel/expression
+include-dir=src/oorexx-3.2.0-leopard/kernel/instructions
+include-dir=src/oorexx-3.2.0-leopard/kernel/parser
+include-dir=src/oorexx-3.2.0-leopard/api
+
+exclude-path=kernel/platform/windows
+exclude-path=platform/windows
+exclude-path=rexutils/windows
+exclude-path=rexxapi/windows
+exclude-path=samples
+exclude-path=kernel/SOM
