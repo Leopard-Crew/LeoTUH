@@ -80,4 +80,10 @@ grep -q "sources_total:" "$OUT" || fail "tree scan did not print sources_total"
 grep -q "local_headers_guarded:" "$OUT" || fail "tree scan did not print local_headers_guarded"
 grep -q "risky_local_defines_total:" "$OUT" || fail "tree scan did not print risky_local_defines_total"
 
+$PYTHON tools/leotuh_scan_tree.py --root testdata/scan_exclude_path --stable-age 0 --exclude-path drop > "$OUT" || exit 1
+
+grep -q "exclude_paths:" "$OUT" || fail "tree scan did not print exclude_paths"
+grep -q "  drop" "$OUT" || fail "tree scan did not list excluded path"
+grep -q "sources_total: 1" "$OUT" || fail "exclude-path did not reduce scanned sources to one"
+
 echo "PASS: LeoTUH scan smoke test"

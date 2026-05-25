@@ -44,18 +44,77 @@ def should_prune_dir(name, extra_prune):
     return 0
 
 
-def collect_sources(root, extra_prune):
+def normalize_scan_path(path):
+    path = os.path.normpath(path).replace(os.sep, "/")
+    while path.startswith("./"):
+        path = path[2:]
+    if path == ".":
+        return ""
+    return path
+
+
+def make_relative_path(path, root):
+    path_abs = os.path.abspath(path)
+    root_abs = os.path.abspath(root)
+
+    if path_abs == root_abs:
+        return ""
+
+    prefix = root_abs + os.sep
+    if path_abs.startswith(prefix):
+        return path_abs[len(prefix):]
+
+    return path
+
+
+def prepare_exclude_paths(paths):
+    result = []
+
+    for path in paths:
+        normalized = normalize_scan_path(path)
+        if normalized:
+            result.append(normalized)
+
+    return result
+
+
+def is_excluded_path(relative_path, exclude_paths):
+    normalized = normalize_scan_path(relative_path)
+
+    for exclude_path in exclude_paths:
+        if normalized == exclude_path:
+            return 1
+        if normalized.startswith(exclude_path + "/"):
+            return 1
+
+    return 0
+
+
+def collect_sources(root, extra_prune, exclude_paths):
     sources = []
 
     for dirpath, dirnames, filenames in os.walk(root):
         kept = []
         for dirname in dirnames:
-            if not should_prune_dir(dirname, extra_prune):
-                kept.append(dirname)
+            child_path = os.path.join(dirpath, dirname)
+            child_rel = make_relative_path(child_path, root)
+
+            if should_prune_dir(dirname, extra_prune):
+                continue
+            if is_excluded_path(child_rel, exclude_paths):
+                continue
+
+            kept.append(dirname)
+
         dirnames[:] = kept
 
         for filename in filenames:
             path = os.path.join(dirpath, filename)
+            rel_path = make_relative_path(path, root)
+
+            if is_excluded_path(rel_path, exclude_paths):
+                continue
+
             if is_source(path):
                 sources.append(os.path.normpath(path))
 
@@ -135,6 +194,13 @@ def main(argv):
         help="additional directory name to prune"
     )
     parser.add_option(
+        "--exclude-path",
+        dest="exclude_paths",
+        action="append",
+        default=[],
+        help="root-relative path to exclude from scanning"
+    )
+    parser.add_option(
         "--list-risky",
         dest="list_risky",
         action="store_true",
@@ -169,7 +235,9 @@ def main(argv):
     for name in options.prune_dirs:
         extra_prune[name] = 1
 
-    sources = collect_sources(root, extra_prune)
+    exclude_paths = prepare_exclude_paths(options.exclude_paths)
+
+    sources = collect_sources(root, extra_prune, exclude_paths)
 
     stats = {}
     risky_lines = []
@@ -226,6 +294,13 @@ def main(argv):
     if options.include_dirs:
         for include_dir in options.include_dirs:
             print("  %s" % include_dir)
+    else:
+        print("  none")
+
+    print("exclude_paths:")
+    if exclude_paths:
+        for exclude_path in exclude_paths:
+            print("  %s" % exclude_path)
     else:
         print("  none")
 
