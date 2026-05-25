@@ -155,6 +155,104 @@ def mask_comments_and_strings(text):
     return "".join(out)
 
 
+
+def mask_comments_only(text):
+    # Replace comments with whitespace while preserving strings and char literals.
+    # This is needed for #include "local.h", where the quoted header name is syntax.
+    out = []
+    i = 0
+    n = len(text)
+    state = "normal"
+
+    while i < n:
+        c = text[i]
+        nxt = text[i + 1] if i + 1 < n else ""
+
+        if state == "normal":
+            if c == "/" and nxt == "/":
+                out.append(" ")
+                out.append(" ")
+                i += 2
+                state = "line_comment"
+                continue
+            if c == "/" and nxt == "*":
+                out.append(" ")
+                out.append(" ")
+                i += 2
+                state = "block_comment"
+                continue
+            if c == '"':
+                out.append(c)
+                i += 1
+                state = "string"
+                continue
+            if c == "'":
+                out.append(c)
+                i += 1
+                state = "char"
+                continue
+
+            out.append(c)
+            i += 1
+            continue
+
+        if state == "line_comment":
+            if c == "\n":
+                out.append("\n")
+                state = "normal"
+            else:
+                out.append(" ")
+            i += 1
+            continue
+
+        if state == "block_comment":
+            if c == "*" and nxt == "/":
+                out.append(" ")
+                out.append(" ")
+                i += 2
+                state = "normal"
+                continue
+            if c == "\n":
+                out.append("\n")
+            else:
+                out.append(" ")
+            i += 1
+            continue
+
+        if state == "string":
+            out.append(c)
+            if c == "\\":
+                if i + 1 < n:
+                    out.append(text[i + 1])
+                    i += 2
+                else:
+                    i += 1
+                continue
+            if c == '"':
+                state = "normal"
+            elif c == "\n":
+                state = "normal"
+            i += 1
+            continue
+
+        if state == "char":
+            out.append(c)
+            if c == "\\":
+                if i + 1 < n:
+                    out.append(text[i + 1])
+                    i += 2
+                else:
+                    i += 1
+                continue
+            if c == "'":
+                state = "normal"
+            elif c == "\n":
+                state = "normal"
+            i += 1
+            continue
+
+    return "".join(out)
+
 def find_direct_includes(masked_text):
     includes = []
 
@@ -241,12 +339,13 @@ def main(argv):
         parser.error("source file does not exist: %s" % path)
 
     text = read_text(path)
+    commentless = mask_comments_only(text)
     masked = mask_comments_and_strings(text)
 
     language = detect_language(path)
     approve, prohibit = find_markers(text)
-    includes = find_direct_includes(masked)
-    defines = find_local_defines(masked)
+    includes = find_direct_includes(commentless)
+    defines = find_local_defines(commentless)
     has_entry_point = detect_entry_point(masked)
 
     mtime = os.path.getmtime(path)
