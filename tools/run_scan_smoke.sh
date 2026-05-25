@@ -74,4 +74,10 @@ grep -q "  this" "$OUT" || fail "this define was not detected"
 grep -q "risky_local_defines:" "$OUT" || fail "risky_local_defines section was not printed"
 grep -q "this:cpp_keyword_macro" "$OUT" || fail "this define was not classified as risky"
 
+$PYTHON tools/leotuh_scan_tree.py --root testdata --stable-age 0 --include-dir testdata/scan_include_path/include > "$OUT" || exit 1
+
+grep -q "sources_total:" "$OUT" || fail "tree scan did not print sources_total"
+grep -q "local_headers_guarded:" "$OUT" || fail "tree scan did not print local_headers_guarded"
+grep -q "risky_local_defines_total:" "$OUT" || fail "tree scan did not print risky_local_defines_total"
+
 echo "PASS: LeoTUH scan smoke test"
