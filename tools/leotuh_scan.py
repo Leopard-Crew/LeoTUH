@@ -29,7 +29,11 @@ def read_text(path):
     finally:
         f.close()
 
-    # Keep this simple and Leopard-safe. Source code is expected to be ASCII or UTF-8 compatible.
+    # Keep this simple and Leopard-safe.
+    # Python 2 returns str here. Python 3 returns bytes and needs decoding.
+    if not isinstance(data, str):
+        data = data.decode("utf-8", "replace")
+
     return data
 
 
@@ -303,16 +307,16 @@ def detect_entry_point(masked_text):
 
 
 def print_list(title, values):
-    print "%s:" % title
+    print("%s:" % title)
     if not values:
-        print "  none"
+        print("  none")
         return
 
     for value in values:
         if isinstance(value, tuple):
-            print "  %s: %s" % (value[0], value[1])
+            print("  %s: %s" % (value[0], value[1]))
         else:
-            print "  %s" % value
+            print("  %s" % value)
 
 
 def main(argv):
@@ -368,19 +372,19 @@ def main(argv):
         decision = "excluded"
         reason = "unknown_language"
 
-    print "path: %s" % path
-    print "language: %s" % language
-    print "mtime: %s" % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(mtime))
-    print "age_seconds: %d" % age
-    print "stable_age_seconds: %d" % options.stable_age
-    print "recent: %s" % ("yes" if recent else "no")
-    print "marker_approve: %s" % ("yes" if approve else "no")
-    print "marker_prohibit: %s" % ("yes" if prohibit else "no")
-    print "entry_point_detected: %s" % ("yes" if has_entry_point else "no")
+    print("path: %s" % path)
+    print("language: %s" % language)
+    print("mtime: %s" % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(mtime)))
+    print("age_seconds: %d" % age)
+    print("stable_age_seconds: %d" % options.stable_age)
+    print("recent: %s" % ("yes" if recent else "no"))
+    print("marker_approve: %s" % ("yes" if approve else "no"))
+    print("marker_prohibit: %s" % ("yes" if prohibit else "no"))
+    print("entry_point_detected: %s" % ("yes" if has_entry_point else "no"))
     print_list("direct_includes", includes)
     print_list("local_defines", defines)
-    print "decision: %s" % decision
-    print "reason: %s" % reason
+    print("decision: %s" % decision)
+    print("reason: %s" % reason)
 
     return 0
 
