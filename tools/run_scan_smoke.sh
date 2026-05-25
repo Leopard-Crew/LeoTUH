@@ -67,18 +67,32 @@ $PYTHON tools/leotuh_scan.py --stable-age 0 \
 grep -q "local: SharedHeader.h" "$OUT" || fail "SharedHeader.h local include was not detected"
 grep -q "SharedHeader.h: guarded=yes guard_style=ifndef_define" "$OUT" || fail "SharedHeader.h include-dir guard was not detected"
 
+$PYTHON tools/leotuh_scan.py --stable-age 0 testdata/simple/sample.cpp > "$OUT" || exit 1
+
+grep -q "candidate: yes" "$OUT" || fail "simple sample was not classified as candidate"
+grep -q "candidate_blockers:" "$OUT" || fail "candidate_blockers section was not printed"
+
+$PYTHON tools/leotuh_scan.py --stable-age 0 testdata/scan_noise/unguarded.cpp > "$OUT" || exit 1
+
+grep -q "candidate: no" "$OUT" || fail "unguarded source was not rejected as candidate"
+grep -q "unguarded_local_header:unguarded.h" "$OUT" || fail "unguarded header blocker was not printed"
+
 $PYTHON tools/leotuh_scan.py --stable-age 0 testdata/scan_risky_define/defines_this.cpp > "$OUT" || exit 1
 
 grep -q "local_defines:" "$OUT" || fail "local_defines section was not printed"
 grep -q "  this" "$OUT" || fail "this define was not detected"
 grep -q "risky_local_defines:" "$OUT" || fail "risky_local_defines section was not printed"
 grep -q "this:cpp_keyword_macro" "$OUT" || fail "this define was not classified as risky"
+grep -q "candidate: no" "$OUT" || fail "risky define source was not rejected as candidate"
+grep -q "risky_local_define:this:cpp_keyword_macro" "$OUT" || fail "risky define blocker was not printed"
 
 $PYTHON tools/leotuh_scan_tree.py --root testdata --stable-age 0 --include-dir testdata/scan_include_path/include > "$OUT" || exit 1
 
 grep -q "sources_total:" "$OUT" || fail "tree scan did not print sources_total"
 grep -q "local_headers_guarded:" "$OUT" || fail "tree scan did not print local_headers_guarded"
 grep -q "risky_local_defines_total:" "$OUT" || fail "tree scan did not print risky_local_defines_total"
+grep -q "sources_candidate_yes:" "$OUT" || fail "tree scan did not print sources_candidate_yes"
+grep -q "sources_candidate_no:" "$OUT" || fail "tree scan did not print sources_candidate_no"
 
 $PYTHON tools/leotuh_scan_tree.py --root testdata/scan_exclude_path --stable-age 0 --exclude-path drop > "$OUT" || exit 1
 

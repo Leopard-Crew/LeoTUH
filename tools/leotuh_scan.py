@@ -306,6 +306,33 @@ def find_risky_local_defines(defines):
     return risky
 
 
+def classify_candidate(recent, approve, prohibit, has_entry_point, local_header_guards, risky_defines):
+    blockers = []
+
+    if recent:
+        blockers.append("recent_file")
+
+    if prohibit:
+        blockers.append("manual_prohibit")
+
+    if has_entry_point:
+        blockers.append("entry_point")
+
+    for name, header_path, guarded, style in local_header_guards:
+        if guarded == "missing":
+            blockers.append("missing_local_header:%s" % name)
+        elif guarded == "no":
+            blockers.append("unguarded_local_header:%s" % name)
+
+    for risky in risky_defines:
+        blockers.append("risky_local_define:%s" % risky)
+
+    if blockers:
+        return ("no", blockers)
+
+    return ("yes", blockers)
+
+
 def detect_entry_point(masked_text):
     patterns = [
         r'\bmain\s*\(',
@@ -456,7 +483,7 @@ def main(argv):
     recent = 1 if age < options.stable_age else 0
 
     decision = "report_only"
-    reason = "scanner_v0_no_classification"
+    reason = "candidate_classification_only"
 
     if prohibit:
         decision = "excluded"
@@ -470,6 +497,15 @@ def main(argv):
     elif language == "unknown":
         decision = "excluded"
         reason = "unknown_language"
+
+    candidate, candidate_blockers = classify_candidate(
+        recent,
+        approve,
+        prohibit,
+        has_entry_point,
+        local_header_guards,
+        risky_defines
+    )
 
     print("path: %s" % path)
     print("language: %s" % language)
@@ -485,6 +521,8 @@ def main(argv):
     print_header_guards(local_header_guards)
     print_list("local_defines", defines)
     print_list("risky_local_defines", risky_defines)
+    print("candidate: %s" % candidate)
+    print_list("candidate_blockers", candidate_blockers)
     print("decision: %s" % decision)
     print("reason: %s" % reason)
 

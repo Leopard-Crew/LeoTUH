@@ -139,6 +139,15 @@ def scan_one(path, include_dirs, stable_age):
     age = int(time.time() - mtime)
     recent = 1 if age < stable_age else 0
 
+    candidate, candidate_blockers = leotuh_scan.classify_candidate(
+        recent,
+        approve,
+        prohibit,
+        has_entry_point,
+        guards,
+        risky_defines
+    )
+
     return {
         "path": path,
         "language": language,
@@ -150,6 +159,8 @@ def scan_one(path, include_dirs, stable_age):
         "guards": guards,
         "entry_point": has_entry_point,
         "recent": recent,
+        "candidate": candidate,
+        "candidate_blockers": candidate_blockers,
     }
 
 
@@ -159,6 +170,12 @@ def inc(stats, key, amount):
 
 def print_stat(stats, key):
     print("%s: %d" % (key, stats.get(key, 0)))
+
+
+def blocker_category(blocker):
+    if ":" in blocker:
+        return blocker.split(":", 1)[0]
+    return blocker
 
 
 def read_scope_file(path):
@@ -339,6 +356,14 @@ def main(argv):
         else:
             inc(stats, "sources_stable", 1)
 
+        if result["candidate"] == "yes":
+            inc(stats, "sources_candidate_yes", 1)
+        else:
+            inc(stats, "sources_candidate_no", 1)
+
+        for blocker in result["candidate_blockers"]:
+            inc(stats, "candidate_blocker_%s" % blocker_category(blocker), 1)
+
         if result["approve"]:
             inc(stats, "manual_approve", 1)
         if result["prohibit"]:
@@ -395,6 +420,14 @@ def main(argv):
         "sources_scanned",
         "sources_stable",
         "sources_recent",
+        "sources_candidate_yes",
+        "sources_candidate_no",
+        "candidate_blocker_recent_file",
+        "candidate_blocker_manual_prohibit",
+        "candidate_blocker_entry_point",
+        "candidate_blocker_missing_local_header",
+        "candidate_blocker_unguarded_local_header",
+        "candidate_blocker_risky_local_define",
         "manual_approve",
         "manual_prohibit",
         "entry_points_detected",
