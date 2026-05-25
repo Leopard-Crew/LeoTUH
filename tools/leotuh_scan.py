@@ -306,9 +306,21 @@ def detect_entry_point(masked_text):
     return 0
 
 
-def resolve_local_include(source_path, include_name):
+def resolve_local_include(source_path, include_name, include_dirs):
     source_dir = os.path.dirname(source_path)
-    return os.path.normpath(os.path.join(source_dir, include_name))
+
+    candidates = [
+        os.path.normpath(os.path.join(source_dir, include_name))
+    ]
+
+    for include_dir in include_dirs:
+        candidates.append(os.path.normpath(os.path.join(include_dir, include_name)))
+
+    for candidate in candidates:
+        if os.path.isfile(candidate):
+            return candidate
+
+    return candidates[0]
 
 
 def detect_header_guard(header_path):
@@ -345,14 +357,14 @@ def detect_header_guard(header_path):
     return ("no", "none")
 
 
-def find_local_header_guards(source_path, includes):
+def find_local_header_guards(source_path, includes, include_dirs):
     guards = []
 
     for kind, name in includes:
         if kind != "local":
             continue
 
-        header_path = resolve_local_include(source_path, name)
+        header_path = resolve_local_include(source_path, name, include_dirs)
         guarded, style = detect_header_guard(header_path)
         guards.append((name, header_path, guarded, style))
 
@@ -394,6 +406,13 @@ def main(argv):
         default=3600,
         help="minimum age in seconds before a file is considered stable"
     )
+    parser.add_option(
+        "--include-dir",
+        dest="include_dirs",
+        action="append",
+        default=[],
+        help="additional include directory for resolving local headers"
+    )
 
     options, args = parser.parse_args(argv[1:])
 
@@ -413,7 +432,7 @@ def main(argv):
     approve, prohibit = find_markers(text)
     includes = find_direct_includes(commentless)
     defines = find_local_defines(commentless)
-    local_header_guards = find_local_header_guards(path, includes)
+    local_header_guards = find_local_header_guards(path, includes, options.include_dirs)
     has_entry_point = detect_entry_point(masked)
 
     mtime = os.path.getmtime(path)
@@ -445,6 +464,7 @@ def main(argv):
     print("marker_approve: %s" % ("yes" if approve else "no"))
     print("marker_prohibit: %s" % ("yes" if prohibit else "no"))
     print("entry_point_detected: %s" % ("yes" if has_entry_point else "no"))
+    print_list("include_dirs", options.include_dirs)
     print_list("direct_includes", includes)
     print_header_guards(local_header_guards)
     print_list("local_defines", defines)

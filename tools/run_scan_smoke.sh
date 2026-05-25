@@ -60,4 +60,11 @@ $PYTHON tools/leotuh_scan.py --stable-age 0 testdata/scan_noise/unguarded.cpp > 
 grep -q "local: unguarded.h" "$OUT" || fail "unguarded.h local include was not detected"
 grep -q "unguarded.h: guarded=no guard_style=none" "$OUT" || fail "unguarded.h unguarded status was not detected"
 
+$PYTHON tools/leotuh_scan.py --stable-age 0 \
+    --include-dir testdata/scan_include_path/include \
+    testdata/scan_include_path/src/uses_shared.cpp > "$OUT" || exit 1
+
+grep -q "local: SharedHeader.h" "$OUT" || fail "SharedHeader.h local include was not detected"
+grep -q "SharedHeader.h: guarded=yes guard_style=ifndef_define" "$OUT" || fail "SharedHeader.h include-dir guard was not detected"
+
 echo "PASS: LeoTUH scan smoke test"
