@@ -161,6 +161,54 @@ def print_stat(stats, key):
     print("%s: %d" % (key, stats.get(key, 0)))
 
 
+def read_scope_file(path):
+    result = {
+        "root": None,
+        "include_dirs": [],
+        "exclude_paths": [],
+        "prune_dirs": [],
+    }
+
+    f = open(path, "r")
+    try:
+        text = f.read()
+    finally:
+        f.close()
+
+    lineno = 0
+    for raw_line in text.splitlines():
+        lineno += 1
+        line = raw_line.strip()
+
+        if not line:
+            continue
+        if line.startswith("#"):
+            continue
+
+        if "=" not in line:
+            raise ValueError("%s:%d: expected key=value" % (path, lineno))
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+
+        if not value:
+            raise ValueError("%s:%d: empty value for %s" % (path, lineno, key))
+
+        if key == "root":
+            result["root"] = value
+        elif key == "include-dir":
+            result["include_dirs"].append(value)
+        elif key == "exclude-path":
+            result["exclude_paths"].append(value)
+        elif key == "prune":
+            result["prune_dirs"].append(value)
+        else:
+            raise ValueError("%s:%d: unknown scope key: %s" % (path, lineno, key))
+
+    return result
+
+
 def main(argv):
     parser = OptionParser(
         usage="usage: %prog [options]",
@@ -171,6 +219,12 @@ def main(argv):
         dest="root",
         default=".",
         help="source tree root"
+    )
+    parser.add_option(
+        "--scope-file",
+        dest="scope_file",
+        default=None,
+        help="read root, include-dir, exclude-path, and prune entries from a scope file"
     )
     parser.add_option(
         "--stable-age",
@@ -227,15 +281,44 @@ def main(argv):
     if args:
         parser.error("unexpected positional arguments")
 
-    root = os.path.normpath(options.root)
+    scope = {
+        "root": None,
+        "include_dirs": [],
+        "exclude_paths": [],
+        "prune_dirs": [],
+    }
+
+    if options.scope_file:
+        if not os.path.isfile(options.scope_file):
+            parser.error("scope file does not exist: %s" % options.scope_file)
+        try:
+            scope = read_scope_file(options.scope_file)
+        except ValueError:
+            error = sys.exc_info()[1]
+            parser.error(str(error))
+
+    root_value = options.root
+    if options.root == "." and scope["root"]:
+        root_value = scope["root"]
+
+    root = os.path.normpath(root_value)
     if not os.path.isdir(root):
         parser.error("root directory does not exist: %s" % root)
 
+    include_dirs = []
+    include_dirs.extend(scope["include_dirs"])
+    include_dirs.extend(options.include_dirs)
+
     extra_prune = {}
+    for name in scope["prune_dirs"]:
+        extra_prune[name] = 1
     for name in options.prune_dirs:
         extra_prune[name] = 1
 
-    exclude_paths = prepare_exclude_paths(options.exclude_paths)
+    raw_exclude_paths = []
+    raw_exclude_paths.extend(scope["exclude_paths"])
+    raw_exclude_paths.extend(options.exclude_paths)
+    exclude_paths = prepare_exclude_paths(raw_exclude_paths)
 
     sources = collect_sources(root, extra_prune, exclude_paths)
 
@@ -247,7 +330,7 @@ def main(argv):
     inc(stats, "sources_total", len(sources))
 
     for source in sources:
-        result = scan_one(source, options.include_dirs, options.stable_age)
+        result = scan_one(source, include_dirs, options.stable_age)
 
         inc(stats, "sources_scanned", 1)
 
@@ -289,10 +372,11 @@ def main(argv):
                 unguarded_lines.append("%s: %s -> %s" % (source, name, header_path))
 
     print("root: %s" % root)
+    print("scope_file: %s" % (options.scope_file if options.scope_file else "none"))
     print("stable_age_seconds: %d" % options.stable_age)
     print("include_dirs:")
-    if options.include_dirs:
-        for include_dir in options.include_dirs:
+    if include_dirs:
+        for include_dir in include_dirs:
             print("  %s" % include_dir)
     else:
         print("  none")

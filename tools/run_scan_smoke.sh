@@ -86,4 +86,11 @@ grep -q "exclude_paths:" "$OUT" || fail "tree scan did not print exclude_paths"
 grep -q "  drop" "$OUT" || fail "tree scan did not list excluded path"
 grep -q "sources_total: 1" "$OUT" || fail "exclude-path did not reduce scanned sources to one"
 
+$PYTHON tools/leotuh_scan_tree.py --scope-file testdata/scan_scope_file/basic.leotuh-scope --stable-age 0 > "$OUT" || exit 1
+
+grep -q "scope_file: testdata/scan_scope_file/basic.leotuh-scope" "$OUT" || fail "tree scan did not print scope file"
+grep -q "root: testdata/scan_exclude_path" "$OUT" || fail "scope file root was not applied"
+grep -q "  drop" "$OUT" || fail "scope file exclude-path was not applied"
+grep -q "sources_total: 1" "$OUT" || fail "scope file did not reduce scanned sources to one"
+
 echo "PASS: LeoTUH scan smoke test"

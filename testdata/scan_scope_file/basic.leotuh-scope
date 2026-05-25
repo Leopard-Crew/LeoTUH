@@ -1,0 +1,4 @@
+# LeoTUH scope-file smoke test.
+
+root=testdata/scan_exclude_path
+exclude-path=drop
