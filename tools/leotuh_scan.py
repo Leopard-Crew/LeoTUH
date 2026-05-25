@@ -159,7 +159,6 @@ def mask_comments_and_strings(text):
     return "".join(out)
 
 
-
 def mask_comments_only(text):
     # Replace comments with whitespace while preserving strings and char literals.
     # This is needed for #include "local.h", where the quoted header name is syntax.
@@ -257,13 +256,14 @@ def mask_comments_only(text):
 
     return "".join(out)
 
-def find_direct_includes(masked_text):
+
+def find_direct_includes(commentless_text):
     includes = []
 
     include_re = re.compile(r'^\s*#\s*include\s*"([^"]+)"')
     system_re = re.compile(r'^\s*#\s*include\s*<([^>]+)>')
 
-    for line in masked_text.splitlines():
+    for line in commentless_text.splitlines():
         m = include_re.search(line)
         if m:
             includes.append(("local", m.group(1)))
@@ -277,11 +277,11 @@ def find_direct_includes(masked_text):
     return includes
 
 
-def find_local_defines(masked_text):
+def find_local_defines(commentless_text):
     defines = []
     define_re = re.compile(r'^\s*#\s*define\s+([A-Za-z_][A-Za-z0-9_]*)')
 
-    for line in masked_text.splitlines():
+    for line in commentless_text.splitlines():
         m = define_re.search(line)
         if m:
             name = m.group(1)
@@ -306,6 +306,59 @@ def detect_entry_point(masked_text):
     return 0
 
 
+def resolve_local_include(source_path, include_name):
+    source_dir = os.path.dirname(source_path)
+    return os.path.normpath(os.path.join(source_dir, include_name))
+
+
+def detect_header_guard(header_path):
+    if not os.path.isfile(header_path):
+        return ("missing", "not_found")
+
+    text = read_text(header_path)
+    commentless = mask_comments_only(text)
+    lines = commentless.splitlines()
+
+    pragma_once_re = re.compile(r'^\s*#\s*pragma\s+once\b')
+    ifndef_re = re.compile(r'^\s*#\s*ifndef\s+([A-Za-z_][A-Za-z0-9_]*)\b')
+    define_re = re.compile(r'^\s*#\s*define\s+([A-Za-z_][A-Za-z0-9_]*)\b')
+
+    limit = min(len(lines), 80)
+
+    for i in range(0, limit):
+        if pragma_once_re.search(lines[i]):
+            return ("yes", "pragma_once")
+
+    for i in range(0, limit):
+        m = ifndef_re.search(lines[i])
+        if not m:
+            continue
+
+        guard_name = m.group(1)
+        search_limit = min(len(lines), i + 10)
+
+        for j in range(i + 1, search_limit):
+            m2 = define_re.search(lines[j])
+            if m2 and m2.group(1) == guard_name:
+                return ("yes", "ifndef_define")
+
+    return ("no", "none")
+
+
+def find_local_header_guards(source_path, includes):
+    guards = []
+
+    for kind, name in includes:
+        if kind != "local":
+            continue
+
+        header_path = resolve_local_include(source_path, name)
+        guarded, style = detect_header_guard(header_path)
+        guards.append((name, header_path, guarded, style))
+
+    return guards
+
+
 def print_list(title, values):
     print("%s:" % title)
     if not values:
@@ -317,6 +370,16 @@ def print_list(title, values):
             print("  %s: %s" % (value[0], value[1]))
         else:
             print("  %s" % value)
+
+
+def print_header_guards(values):
+    print("local_header_guards:")
+    if not values:
+        print("  none")
+        return
+
+    for name, path, guarded, style in values:
+        print("  %s: guarded=%s guard_style=%s path=%s" % (name, guarded, style, path))
 
 
 def main(argv):
@@ -350,6 +413,7 @@ def main(argv):
     approve, prohibit = find_markers(text)
     includes = find_direct_includes(commentless)
     defines = find_local_defines(commentless)
+    local_header_guards = find_local_header_guards(path, includes)
     has_entry_point = detect_entry_point(masked)
 
     mtime = os.path.getmtime(path)
@@ -382,6 +446,7 @@ def main(argv):
     print("marker_prohibit: %s" % ("yes" if prohibit else "no"))
     print("entry_point_detected: %s" % ("yes" if has_entry_point else "no"))
     print_list("direct_includes", includes)
+    print_header_guards(local_header_guards)
     print_list("local_defines", defines)
     print("decision: %s" % decision)
     print("reason: %s" % reason)
